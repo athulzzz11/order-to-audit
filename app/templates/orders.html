@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}Orders{% endblock %}
+{% block body %}
+<h1>Incoming orders</h1>
+<p class="sub">Orders arrive straight from salesmen's phones. Check stock, edit if needed, approve, invoice, dispatch.</p>
+<div class="actions" style="margin:0 0 12px">
+  {% for s in ['open','submitted','approved','invoiced','dispatched','rejected','cancelled','all'] %}
+  <a class="btn {{ '' if s == status else 'alt' }}" href="?status={{ s }}">{{ s|capitalize }}</a>{% endfor %}
+</div>
+<div class="wrap"><table>
+<tr><th>Order</th><th>Taken</th><th>Salesman</th><th>Customer</th><th>Lines</th><th class="n">Value (pre-tax)</th><th>Stock</th><th>Status</th></tr>
+{% for o in orders %}
+<tr><td><a href="/orders/{{ o.id }}">{{ o.number }}</a></td><td>{{ o.taken_at|dt }}</td><td>{{ o.salesman.name }}</td>
+<td>{{ o.customer.name }}<div class="small muted">{{ o.customer.state_name }}</div></td>
+<td>{% for l in o.lines %}{{ l.product.name }} × {{ l.qty }}<br>{% endfor %}</td>
+<td class="n">{% set ns = namespace(t=0) %}{% for l in o.lines %}{% set ns.t = ns.t + l.qty*l.price_paise %}{% endfor %}{{ ns.t|money }}</td>
+<td>{% if o.id in checks %}{% set short = checks[o.id]|selectattr('shortage')|list %}
+  {% if short %}<span class="pill bad">Short {{ short|sum(attribute='shortage') }}</span>{% else %}<span class="pill ok">In stock</span>{% endif %}{% endif %}</td>
+<td><span class="pill s-{{ o.status }}">{{ o.status }}</span></td></tr>
+{% else %}<tr><td colspan="8" class="muted">No orders here.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% block title %}Payments{% endblock %}
+{% block body %}
+<h1>Payments and outstanding</h1>
+<p class="sub">Record money received. Tag it to an invoice, or leave it "on account" and it settles the oldest invoice first.</p>
+{% if can('orders', True) %}<div class="card"><h2 style="margin-top:0">Record a payment</h2>
+<form method="post" action="/payments" class="row">
+  <div><label>Customer</label><select name="customer_id" id="cust" onchange="filt()">{% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if c.id == selected }}>{{ c.name }}</option>{% endfor %}</select></div>
+  <div><label>Against invoice</label><select name="invoice_id" id="inv"><option value="">On account</option>
+    {% for s in summary %}{% for it in s.open if it.invoice and it.due > 0 %}<option data-c="{{ s.c.id }}" value="{{ it.invoice.id }}">{{ it.invoice.number }} · due {{ it.due|money }}</option>{% endfor %}{% endfor %}</select></div>
+  <div><label>Amount (₹)</label><input name="amount" required placeholder="4000"></div>
+  <div><label>Mode</label><select name="mode"><option>upi</option><option>cash</option><option>cheque</option><option>neft</option></select></div>
+  <div><label>Reference</label><input name="reference" placeholder="UTR / cheque no."></div>
+  <button>Save receipt</button>
+</form></div>
+<script>function filt(){const c=document.getElementById('cust').value;let first=null;for(const o of document.querySelectorAll('#inv option[data-c]')){o.hidden=o.dataset.c!==c;if(!o.hidden&&!first)first=o}document.getElementById('inv').value=first?first.value:''}filt()</script>{% endif %}
+
+<h2>Outstanding by customer</h2>
+<div class="wrap"><table><tr><th>Customer</th><th>Open invoices</th><th class="n">Outstanding</th></tr>
+{% for s in summary %}<tr><td>{{ s.c.name }}</td><td>{% for it in s.open if it.invoice and it.due %}<a href="/invoices/{{ it.invoice.id }}">{{ it.invoice.number }}</a> {{ it.due|money }}<br>{% endfor %}{% for it in s.open if not it.invoice %}<span class="muted">Advance {{ (-it.due)|money }}</span>{% endfor %}</td>
+<td class="n"><b>{{ s.outstanding|money }}</b></td></tr>{% endfor %}</table></div>
+
+<h2>Recent receipts</h2>
+<div class="wrap"><table><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Invoice</th><th>Mode</th><th>Ref</th><th class="n">Amount</th></tr>
+{% for p in payments %}<tr><td>{{ p.number }}</td><td>{{ p.date|d }}</td><td>{{ p.customer.name }}</td><td>{{ p.invoice.number if p.invoice else 'On account' }}</td><td>{{ p.mode }}</td><td>{{ p.reference or '' }}</td><td class="n">{{ p.amount_paise|money }}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">None yet.</td></tr>{% endfor %}</table></div>
+{% endblock %}

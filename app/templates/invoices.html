@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Invoices{% endblock %}
+{% block body %}
+<h1>GST invoices</h1>
+<p class="sub">Numbered per financial year. A posted invoice is never deleted: it is cancelled with a credit note.</p>
+<div class="wrap"><table>
+<tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Supply</th><th class="n">Taxable</th><th class="n">CGST</th><th class="n">SGST</th><th class="n">IGST</th><th class="n">Total</th><th>Status</th><th></th></tr>
+{% for i in invoices %}<tr><td><a href="/invoices/{{ i.id }}">{{ i.number }}</a></td><td>{{ i.date|d }}</td><td>{{ i.customer.name }}</td><td>{{ i.supply_type }}</td>
+<td class="n">{{ i.taxable_paise|money }}</td><td class="n">{{ i.cgst_paise|money }}</td><td class="n">{{ i.sgst_paise|money }}</td><td class="n">{{ i.igst_paise|money }}</td>
+<td class="n"><b>{{ i.total_paise|money }}</b></td><td><span class="pill s-{{ i.status }}">{{ i.status }}</span></td><td><a href="/invoices/{{ i.id }}/pdf" target="_blank">PDF</a></td></tr>
+{% else %}<tr><td colspan="11" class="muted">No invoices yet.</td></tr>{% endfor %}</table></div>
+{% if credit_notes %}<h2>Credit notes</h2><div class="wrap"><table><tr><th>Credit note</th><th>Date</th><th>Against</th><th>Reason</th><th class="n">Total</th><th></th></tr>
+{% for c in credit_notes %}<tr><td>{{ c.number }}</td><td>{{ c.date|d }}</td><td><a href="/invoices/{{ c.invoice_id }}">{{ c.invoice.number }}</a></td><td>{{ c.reason }}</td><td class="n">{{ c.total_paise|money }}</td><td><a href="/credit-notes/{{ c.id }}/pdf" target="_blank">PDF</a></td></tr>{% endfor %}</table></div>{% endif %}
+{% endblock %}

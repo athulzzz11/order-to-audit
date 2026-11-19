@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% block title %}{{ inv.number }}{% endblock %}
+{% block body %}
+<p class="small"><a href="/invoices">← Invoices</a></p>
+<h1>Tax invoice {{ inv.number }} <span class="pill s-{{ inv.status }}">{{ inv.status }}</span></h1>
+<p class="sub">{{ inv.date|d }} · {{ inv.customer.name }} · GSTIN {{ inv.customer_gstin or 'unregistered' }} · place of supply {{ inv.place_of_supply }} ({{ inv.customer.state_name }})
+{% if inv.order %}· from order <a href="/orders/{{ inv.order.id }}">{{ inv.order.number }}</a>{% endif %}</p>
+
+<div class="card"><div class="wrap"><table>
+<tr><th>Product</th><th>HSN</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Taxable</th>
+{% if inv.supply_type == 'intra' %}<th class="n">CGST</th><th class="n">SGST</th>{% else %}<th class="n">IGST</th>{% endif %}<th class="n">Total</th></tr>
+{% for l in inv.lines %}<tr><td>{{ l.product.name }}</td><td>{{ l.hsn }}</td><td class="n">{{ l.qty }}</td><td class="n">{{ l.price_paise|money }}</td><td class="n">{{ l.taxable_paise|money }}</td>
+{% if inv.supply_type == 'intra' %}<td class="n">{{ l.cgst_paise|money }} <span class="muted small">@{{ l.gst_rate_bp/200 }}%</span></td><td class="n">{{ l.sgst_paise|money }} <span class="muted small">@{{ l.gst_rate_bp/200 }}%</span></td>
+{% else %}<td class="n">{{ l.igst_paise|money }} <span class="muted small">@{{ l.gst_rate_bp/100 }}%</span></td>{% endif %}
+<td class="n">{{ (l.taxable_paise+l.cgst_paise+l.sgst_paise+l.igst_paise)|money }}</td></tr>{% endfor %}
+<tr class="total"><td colspan="4">Total</td><td class="n">{{ inv.taxable_paise|money }}</td>
+{% if inv.supply_type == 'intra' %}<td class="n">{{ inv.cgst_paise|money }}</td><td class="n">{{ inv.sgst_paise|money }}</td>{% else %}<td class="n">{{ inv.igst_paise|money }}</td>{% endif %}
+<td class="n">{{ inv.total_paise|money }}</td></tr></table></div>
+<div class="actions">
+  <a class="btn" href="/invoices/{{ inv.id }}/pdf" target="_blank">Download PDF</a>
+  <a class="btn alt" href="{{ wa }}" target="_blank">Share on WhatsApp</a>
+  <a class="btn alt" href="{{ mail }}">Email</a>
+  <input readonly value="{{ share_link }}" style="flex:1;min-width:200px" onclick="this.select()" title="Customer link (signed, no login)">
+</div></div>
+
+<div class="grid">
+<div class="card"><h2 style="margin-top:0">Dispatch</h2>
+{% if inv.status == 'posted' %}
+  <p>Dispatching reduces finished-goods stock, oldest-expiry batch first.</p>
+  {% if can('orders', True) %}<form method="post" action="/invoices/{{ inv.id }}/dispatch" class="row"><div><label>Vehicle no.</label><input name="vehicle_no" placeholder="TN45AB1234"></div><button>Record dispatch</button></form>{% endif %}
+{% elif batches %}
+  <p>Dispatched {{ inv.dispatched_at|dt }}{% if inv.vehicle_no %} on {{ inv.vehicle_no }}{% endif %}.</p>
+  <table><tr><th>Batch</th><th>Expiry</th><th class="n">Packets</th></tr>{% for b in batches %}<tr><td>{{ b.batch_no }}</td><td>{{ b.expiry|d }}</td><td class="n">{{ b.qty }}</td></tr>{% endfor %}</table>
+{% else %}<p class="muted">Not dispatched.</p>{% endif %}
+</div>
+<div class="card"><h2 style="margin-top:0">Payments</h2>
+  {% for p in payments %}<div>{{ p.number }} · {{ p.date|d }} · {{ p.mode }} · <b>{{ p.amount_paise|money }}</b></div>{% else %}<p class="muted">No payments tagged to this invoice.</p>{% endfor %}
+  <p class="big">Balance due: {{ due|money }}</p>
+  {% if can('orders', True) and inv.status != 'cancelled' %}<a class="btn alt" href="/payments?customer_id={{ inv.customer_id }}">Record payment</a>{% endif %}
+</div>
+<div class="card"><h2 style="margin-top:0">Cancel</h2>
+{% if cn %}<div class="alert">Cancelled by credit note <b>{{ cn.number }}</b> on {{ cn.date|d }}: {{ cn.reason }}. {{ 'Goods returned to stock.' if cn.stock_returned }}</div>
+  <a class="btn alt" href="/credit-notes/{{ cn.id }}/pdf" target="_blank">Credit note PDF</a>
+{% elif can('orders', True) %}<p class="small muted">Issues a full credit note. If dispatched, the same batches come back into stock.</p>
+  <form method="post" action="/invoices/{{ inv.id }}/cancel" class="row" onsubmit="return confirm('Issue a credit note for {{ inv.number }}?')"><div><label>Reason</label><input name="reason" required></div><button class="danger">Issue credit note</button></form>{% endif %}
+</div></div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% block title %}{{ o.number }}{% endblock %}
+{% block body %}
+<p class="small"><a href="/orders">← Orders</a></p>
+<h1>{{ o.number }} <span class="pill s-{{ o.status }}">{{ o.status }}</span></h1>
+<p class="sub">{{ o.customer.name }} ({{ o.customer.kind }}, {{ o.customer.state_name }}) · by {{ o.salesman.name }} ·
+  taken {{ o.taken_at|dt }}{% if o.received_at and (o.received_at - o.taken_at).total_seconds() > 120 %} · <b>synced later</b> {{ o.received_at|dt }} (taken offline){% endif %}</p>
+{% if o.note %}<div class="note">Salesman note: {{ o.note }}</div>{% endif %}
+{% if o.reject_reason %}<div class="alert">Rejected: {{ o.reject_reason }}</div>{% endif %}
+
+{% set editable = can('orders', True) and o.status in ('submitted', 'approved') %}
+<div class="card"><h2 style="margin-top:0">1 · Verify price, quantity and stock</h2>
+<form method="post" action="/orders/{{ o.id }}/edit">
+<div class="wrap"><table>
+<tr><th>Product</th><th class="n">Qty (packets)</th><th class="n">Price / packet</th><th class="n">On hand</th><th class="n">Reserved by other invoices</th><th class="n">Available</th><th>Stock check</th></tr>
+{% for r in check %}<tr>
+<td>{{ r.product.name }}<div class="small muted">HSN {{ r.product.hsn }} · GST {{ r.product.gst_rate_bp/100 }}%</div></td>
+<td class="n">{% if editable %}<input type="number" min="0" name="qty_{{ r.line.id }}" value="{{ r.ordered }}">{% else %}{{ r.ordered }}{% endif %}</td>
+<td class="n">{% if editable %}<input name="price_{{ r.line.id }}" value="{{ '%.2f'|format(r.line.price_paise/100) }}" style="width:90px">{% else %}{{ r.line.price_paise|money }}{% endif %}</td>
+<td class="n">{{ r.on_hand }}</td><td class="n">{{ r.reserved }}</td><td class="n">{{ r.available }}</td>
+<td>{% if r.ok %}<span class="pill ok">Covered</span>{% else %}<span class="pill bad">Short by {{ r.shortage }}</span>
+  <div class="small">Make {{ r.batches_needed }} more batch{{ 'es' if r.batches_needed > 1 }} to fulfil</div>{% endif %}</td></tr>{% endfor %}
+</table></div>
+{% if editable %}<div class="actions"><button class="alt">Save changes</button></div>{% endif %}
+</form>
+{% set short = check|selectattr('shortage')|list %}
+{% if short %}<div class="alert"><b>Insufficient finished-goods stock.</b> {% for r in short %}{{ r.product.name }}: ordered {{ r.ordered }}, available {{ r.available }} → short by <b>{{ r.shortage }}</b> packets. {% endfor %}
+The order can be approved, but it cannot be invoiced or dispatched until production catches up (or you reduce the quantity to what is available).</div>{% endif %}
+</div>
+
+<div class="card"><h2 style="margin-top:0">2 · GST preview <span class="pill">{{ 'Intra-state: CGST + SGST' if preview.supply_type == 'intra' else 'Inter-state: IGST' }}</span></h2>
+<p class="small muted">Factory in Tamil Nadu (33); place of supply {{ o.customer.state_name }} ({{ o.customer.state_code }}).</p>
+<table style="max-width:520px">
+<tr><td>Taxable value</td><td class="n">{{ preview.taxable|money }}</td></tr>
+{% if preview.supply_type == 'intra' %}<tr><td>CGST</td><td class="n">{{ preview.cgst|money }}</td></tr><tr><td>SGST</td><td class="n">{{ preview.sgst|money }}</td></tr>
+{% else %}<tr><td>IGST</td><td class="n">{{ preview.igst|money }}</td></tr>{% endif %}
+<tr class="total"><td>Invoice total</td><td class="n">{{ preview.total|money }}</td></tr></table>
+</div>
+
+{% if can('orders', True) %}<div class="card"><h2 style="margin-top:0">3 · Decide</h2><div class="actions">
+{% if o.status == 'submitted' %}<form class="inline" method="post" action="/orders/{{ o.id }}/approve"><button>Approve</button></form>{% endif %}
+{% if o.status == 'approved' %}<form class="inline" method="post" action="/orders/{{ o.id }}/invoice"><button {{ 'disabled title="Not enough stock"' if short }}>Raise GST invoice</button></form>{% endif %}
+{% if o.status in ('submitted','approved') %}<form class="inline" method="post" action="/orders/{{ o.id }}/reject"><input name="reason" placeholder="Reason for rejecting"> <button class="danger">Reject</button></form>{% endif %}
+{% if o.invoice %}<a class="btn" href="/invoices/{{ o.invoice.id }}">Open invoice {{ o.invoice.number }}</a>{% endif %}
+</div></div>{% endif %}
+{% endblock %}
