@@ -9,6 +9,8 @@ PRODUCTION LOOP  Purchase → Raw stock → Issue against BOM → Run output ─
 BOTH             → Stock ledger → Variance → Cost per packet → Reports (Excel / CSV / PDF)
 ```
 
+**Live demo:** _link added after deployment_ · logins below, password `demo123` (free hosting sleeps when idle, so the first load can take ~50 s)
+
 ---
 
 ## 1. Benchmark result (section 5): 11 / 11
@@ -51,6 +53,8 @@ With FIFO instead, flour would cost 40 × 42 = ₹1,680 and the packet ₹30.90.
 ---
 
 ## 2. Run it
+
+**Hosted:** `render.yaml` deploys this repo to Render's free plan in one click (New → Blueprint → pick the repo).
 
 **Docker (PostgreSQL):**
 ```bash

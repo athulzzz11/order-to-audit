@@ -1,0 +1,18 @@
+# One-click hosting on Render (free plan). Render reads this file from the repo.
+# Free instances sleep after ~15 min idle; the first visit then takes ~50 s and the demo data
+# is reloaded fresh (SQLite on an ephemeral disk) - ideal for evaluators.
+services:
+  - type: web
+    name: order-to-audit
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /login
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SECRET_KEY
+        generateValue: true
+      - key: TZ
+        value: Asia/Kolkata
