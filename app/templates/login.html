@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}Log in{% endblock %}
+{% block body %}
+<div class="login">
+  <h1>Order-to-Audit</h1>
+  <p class="sub">Salesman order → GST invoice → production → monthly audit, in one system.</p>
+  <div class="card">
+    {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+    <form method="post" action="/login">
+      <input type="hidden" name="next" value="{{ next }}">
+      <p><label>Username</label><input name="username" id="u" autofocus required style="width:100%"></p>
+      <p><label>Password</label><input name="password" id="p" type="password" required style="width:100%"></p>
+      <button style="width:100%">Log in</button>
+    </form>
+  </div>
+  <div class="card"><h3 style="margin-top:0">Demo logins (password <span class="tag">demo123</span>)</h3>
+    <table class="demo">{% for u, n, r in demo_users %}
+      <tr><td><a href="#" onclick="u.value='{{ u }}';p.value='demo123';return false">{{ u }}</a></td><td>{{ n }}</td><td class="muted">{{ r }}</td></tr>{% endfor %}
+    </table></div>
+</div>
+{% endblock %}

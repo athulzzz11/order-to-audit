@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Order-to-Audit{% endblock %}</title>
+<link rel="stylesheet" href="/static/app.css"></head>
+<body>
+{% if user %}
+<div class="top"><b>Order-to-Audit</b>
+  <nav>{% for label, url in nav %}<a href="{{ url }}" class="{{ 'on' if request.url.path.startswith(url) }}">{{ label }}</a>{% endfor %}</nav>
+  <span class="me">{{ user.name }} · {{ role_name }} · <a href="/logout">Log out</a></span></div>
+{% endif %}
+<main>
+{% for kind, msg in flashes %}<div class="flash {{ kind }}">{{ msg }}</div>{% endfor %}
+{% block body %}{% endblock %}
+</main>
+</body></html>
