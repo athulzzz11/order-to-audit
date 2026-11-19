@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
@@ -33,6 +33,10 @@ def create_app(seed_if_empty: bool = True) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
     for r in (auth_routes, mobile, sales_routes, production_routes, stock_routes, report_routes):
         app.include_router(r.router)
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon():
+        return FileResponse(Path(__file__).parent / "static" / "icon.svg", media_type="image/svg+xml")
 
     @app.exception_handler(LoginRequired)
     async def _login(request: Request, exc):
