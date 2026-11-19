@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#7a3e12"><link rel="manifest" href="/m/manifest.json">
+<title>Orders · Salesman</title>
+<style>
+:root{--b:#7a3e12;--bg:#faf7f3;--line:#eadfd3;--mute:#7b6d62;--ok:#1f7a45;--bad:#b42318}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:#2b2118;padding-bottom:84px}
+header{background:var(--b);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center}
+header small{opacity:.85}.net{font-size:12px;padding:2px 8px;border-radius:99px;background:#1f7a45}.net.off{background:#b42318}
+nav{display:flex;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:52px;z-index:4}nav button{flex:1;padding:12px;border:0;background:none;font:inherit;font-weight:600;color:var(--mute)}nav button.on{color:var(--b);box-shadow:inset 0 -3px var(--b)}
+section{padding:14px}.hide{display:none}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+input,select,textarea{font:inherit;width:100%;padding:12px;border:1px solid #d6c8ba;border-radius:10px;background:#fff}
+.cust{display:grid;gap:8px}.cust button{text-align:left;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit}.cust button.sel{border:2px solid var(--b);background:#fbf1e7}
+.prod{display:flex;align-items:center;gap:8px;justify-content:space-between}.step{display:flex;align-items:center;gap:6px}.step button{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:22px}
+.step input{width:70px;text-align:center;padding:10px}.unit{display:flex;gap:4px;margin-top:6px}.unit button{flex:1;padding:6px;border:1px solid var(--line);background:#fff;border-radius:8px;font:inherit;font-size:13px}.unit button.on{background:var(--b);color:#fff}
+.bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:10px 14px;display:flex;gap:10px;align-items:center}
+.bar .tot{flex:1}.go{background:var(--b);color:#fff;border:0;border-radius:12px;padding:14px 18px;font:inherit;font-weight:700}.go:disabled{opacity:.4}
+.pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:#eee}.submitted{background:#e8f0fe;color:#1a56db}.approved{background:#fff4d6;color:#9a6700}.invoiced{background:#efe7ff;color:#6b3fd1}.dispatched{background:#e6f4ec;color:var(--ok)}.rejected,.cancelled{background:#fdecea;color:var(--bad)}.pending{background:#fdecea;color:var(--bad)}
+.muted{color:var(--mute);font-size:13px}.toast{position:fixed;left:14px;right:14px;bottom:90px;background:#2b2118;color:#fff;padding:12px;border-radius:10px;opacity:0;transition:.3s;pointer-events:none}.toast.show{opacity:1}
+h3{margin:4px 0 8px;font-size:15px}
+</style></head>
+<body>
+<header><div><b>New order</b><br><small id="who">{{ user.name }}</small></div><div style="text-align:right"><span id="net" class="net">online</span><br><small id="q"></small> · <a href="/logout" style="color:#fff;font-size:12px">log out</a></div></header>
+<nav><button data-t="new" class="on">Order</button><button data-t="orders">My orders</button><button data-t="sales">My sales</button></nav>
+
+<section id="t-new">
+  <h3>1 · Customer</h3>
+  <input id="search" placeholder="Search customer…" oninput="drawCust()">
+  <div class="cust" id="custs" style="margin-top:8px"></div>
+  <h3 style="margin-top:16px">2 · Products</h3>
+  <div id="prods"></div>
+  <textarea id="note" rows="2" placeholder="Note for the factory (optional)"></textarea>
+</section>
+<section id="t-orders" class="hide"><div id="orders"></div></section>
+<section id="t-sales" class="hide"><div id="sales"></div></section>
+
+<div class="bar" id="bar"><div class="tot"><b id="tot">₹0.00</b><div class="muted" id="pk">0 packets · before GST</div></div><button class="go" id="send" onclick="submitOrder()" disabled>Submit order</button></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---- state: master data cached for offline use; unsent orders kept in an outbox
+const K = {data: 'ota_bootstrap', outbox: 'ota_outbox'};
+let data = JSON.parse(localStorage.getItem(K.data) || 'null');
+let outbox = JSON.parse(localStorage.getItem(K.outbox) || '[]');
+let sel = null, cart = {};  // cart[product_id] = {qty, unit}
+
+const $ = id => document.getElementById(id);
+const rs = p => '₹' + (p / 100).toLocaleString('en-IN', {minimumFractionDigits: 2});
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'x' + Date.now() + Math.random().toString(16).slice(2));
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+function saveOutbox(){localStorage.setItem(K.outbox, JSON.stringify(outbox)); $('q').textContent = outbox.length ? outbox.length + ' waiting to send' : 'all sent'}
+
+async function refresh(){
+  try{ const r = await fetch('/api/m/bootstrap', {cache:'no-store'});
+    if(r.status === 401){ location.href = '/login?next=/m/'; return }
+    data = await r.json(); localStorage.setItem(K.data, JSON.stringify(data)); }
+  catch(e){ /* offline: keep cached data */ }
+  draw();
+}
+
+function draw(){ if(!data){ $('custs').innerHTML='<p class="muted">Connect once to download your customers.</p>'; return }
+  drawCust(); drawProds(); drawOrders(); drawSales(); total(); }
+
+function drawCust(){ const q = $('search').value.toLowerCase();
+  $('custs').innerHTML = data.customers.filter(c => c.name.toLowerCase().includes(q)).map(c =>
+    `<button class="${sel===c.id?'sel':''}" onclick="sel=${c.id};drawCust();total()"><b>${c.name}</b><br><span class="muted">${c.kind} · ${c.state}</span></button>`).join(''); }
+
+function drawProds(){ $('prods').innerHTML = data.products.map(p => { const c = cart[p.id] || {qty:0, unit:'packet'};
+  return `<div class="card"><div class="prod"><div><b>${p.name}</b><div class="muted">${p.price_fmt} / packet${p.per_carton?` · ${p.per_carton} per carton`:''}</div></div>
+  <div class="step"><button onclick="bump(${p.id},-1)">−</button><input inputmode="numeric" value="${c.qty}" onchange="setQ(${p.id},this.value)"><button onclick="bump(${p.id},1)">+</button></div></div>
+  ${p.per_carton?`<div class="unit"><button class="${c.unit==='packet'?'on':''}" onclick="setU(${p.id},'packet')">Packets</button><button class="${c.unit==='carton'?'on':''}" onclick="setU(${p.id},'carton')">Cartons</button></div>`:''}</div>` }).join(''); }
+
+function item(id){ return cart[id] || (cart[id] = {qty:0, unit:'packet'}) }
+function bump(id, d){ const c = item(id); c.qty = Math.max(0, (+c.qty||0) + d * (c.unit==='packet' ? 10 : 1)); drawProds(); total() }
+function setQ(id, v){ item(id).qty = Math.max(0, parseInt(v)||0); total() }
+function setU(id, u){ item(id).unit = u; drawProds(); total() }
+function packets(p, c){ return c.unit === 'carton' ? c.qty * p.per_carton : c.qty }
+function total(){ if(!data) return; let t=0, n=0; for(const p of data.products){ const c=cart[p.id]; if(c){ const k=packets(p,c); n+=k; t+=k*p.price } }
+  $('tot').textContent = rs(t); $('pk').textContent = n + ' packets · before GST'; $('send').disabled = !(sel && n > 0); }
+
+function submitOrder(){
+  const lines = data.products.filter(p => cart[p.id] && cart[p.id].qty > 0).map(p => ({product_id:p.id, qty:+cart[p.id].qty, unit:cart[p.id].unit}));
+  const cust = data.customers.find(c => c.id === sel);
+  outbox.push({client_uuid: uuid(), customer_id: sel, customer: cust.name, lines, note: $('note').value || null, taken_at: new Date().toISOString()});
+  saveOutbox(); cart = {}; sel = null; $('note').value=''; draw();
+  toast(navigator.onLine ? 'Sending order…' : 'Saved on phone. It will be sent when the network returns.');
+  sync();
+}
+
+let syncing = false;
+async function sync(){ if(syncing || !outbox.length) return; syncing = true;
+  try{ while(outbox.length){ const o = outbox[0];
+      const r = await fetch('/api/m/orders', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(o)});
+      if(r.status === 401){ location.href='/login?next=/m/'; return }
+      if(!r.ok){ const e = await r.json().catch(()=>({error:'error'})); toast('Order refused: ' + e.error); outbox.shift(); saveOutbox(); continue }
+      const s = await r.json(); outbox.shift(); saveOutbox(); toast('Order ' + s.number + ' received by factory'); }
+    await refresh();
+  } catch(e){ /* still offline: try again later */ } finally { syncing = false } }
+
+function drawOrders(){ const pend = outbox.map(o => `<div class="card"><span class="pill pending">waiting for network</span> <b>${o.customer}</b><div class="muted">${o.lines.map(l=>l.qty+' '+l.unit).join(', ')} · ${new Date(o.taken_at).toLocaleString()}</div></div>`).join('');
+  $('orders').innerHTML = pend + (data.orders.map(o => `<div class="card"><span class="pill ${o.status}">${o.status}</span> <b>${o.number}</b><div>${o.customer}</div>
+    <div class="muted">${o.lines.map(l=>l.product+' × '+l.qty).join(', ')} · ${o.total}${o.invoice?' · '+o.invoice:''}${o.reject_reason?' · '+o.reject_reason:''}</div></div>`).join('') || '<p class="muted">No orders yet.</p>'); }
+
+function drawSales(){ $('sales').innerHTML = '<h3>This month, by customer</h3>' + data.sales_this_month.map(s =>
+  `<div class="card"><b>${s.customer}</b><div class="muted">${s.invoices} invoice(s) · ${s.packets} packets</div><div>Billed ${s.sales} · <b>Outstanding ${s.outstanding}</b></div></div>`).join(''); }
+
+for(const b of document.querySelectorAll('nav button')) b.onclick = () => { for(const x of document.querySelectorAll('nav button')) x.classList.toggle('on', x===b);
+  for(const t of ['new','orders','sales']) $('t-'+t).classList.toggle('hide', t !== b.dataset.t); $('bar').style.display = b.dataset.t==='new' ? 'flex' : 'none'; };
+function net(){ const on = navigator.onLine; $('net').textContent = on ? 'online' : 'offline'; $('net').classList.toggle('off', !on); if(on) sync() }
+addEventListener('online', net); addEventListener('offline', net); setInterval(sync, 20000);
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/m/sw.js', {scope: '/m/'});
+saveOutbox(); net(); draw(); refresh(); sync();
+</script>
+</body></html>
