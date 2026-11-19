@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Purchases{% endblock %}
+{% block body %}
+<h1>Purchases (raw-material receipts)</h1>
+<p class="sub">Goods received from suppliers. Stock goes up at the taxable rate (input GST is claimed as credit, not added to cost).</p>
+{% if can('purchases', True) %}<form method="post" action="/purchases" class="card">
+<div class="row"><div><label>Supplier</label><select name="supplier_id">{% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></div>
+<div><label>Supplier invoice no.</label><input name="supplier_invoice"></div><div><label>Date</label><input type="date" name="date" value="{{ today }}"></div></div>
+<div class="wrap" style="margin-top:12px"><table><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Rate (₹ per unit)</th><th>GST %</th></tr>
+{% for i in range(3) %}<tr><td><select name="item_id" onchange="setU(this)"><option value="">—</option>{% for m in materials %}<option value="{{ m.id }}" data-u="{{ units[m.id]|join(',') }}" data-d="{{ m.display_unit }}">{{ m.name }}</option>{% endfor %}</select></td>
+<td><input name="qty" inputmode="decimal" style="width:90px"></td><td><select name="unit"></select></td><td><input name="rate" inputmode="decimal" style="width:90px"></td><td><input name="gst" value="0" style="width:60px"></td></tr>{% endfor %}
+</table></div><div class="actions"><button>Save purchase</button></div></form>
+<script>function setU(s){const o=s.selectedOptions[0],u=s.closest('tr').querySelector('select[name=unit]');u.innerHTML='';if(!o.dataset.u)return;for(const x of o.dataset.u.split(',')){const e=new Option(x,x,false,x===o.dataset.d);u.add(e)}}</script>{% endif %}
+<div class="wrap"><table><tr><th>Purchase</th><th>Date</th><th>Supplier</th><th>Their invoice</th><th>Lines</th><th class="n">Taxable</th><th class="n">GST</th></tr>
+{% for p in purchases %}<tr><td>{{ p.number }}</td><td>{{ p.date|d }}</td><td>{{ p.supplier.name }}</td><td>{{ p.supplier_invoice or '' }}</td>
+<td>{% for l in p.lines %}{{ l.item.name }}: {{ l.entered_qty }} {{ l.entered_unit }} @ {{ l.rate_paise|money }}<br>{% endfor %}</td><td class="n">{{ p.taxable_paise|money }}</td><td class="n">{{ p.tax_paise|money }}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">None yet.</td></tr>{% endfor %}</table></div>
+{% endblock %}

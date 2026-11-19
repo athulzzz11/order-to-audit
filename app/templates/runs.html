@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}Production{% endblock %}
+{% block body %}
+<h1>Production runs</h1>
+<p class="sub">Issue materials against the recipe, count the good packets, and the system does the stock, variance and costing.</p>
+<div class="actions" style="margin:0 0 14px">
+  {% if can('production', True) %}{% for p in products %}<a class="btn" href="/production/new?product_id={{ p.id }}">+ New run: {{ p.name }}</a>{% endfor %}{% endif %}
+  <a class="btn alt" href="/overheads">Overheads</a>
+</div>
+<div class="wrap"><table>
+<tr><th>Run</th><th>Date</th><th>Product</th><th>Batch</th><th class="n">Batches</th><th class="n">Expected</th><th class="n">Good</th><th>Variance</th><th class="n">Cost / packet</th><th>Status</th></tr>
+{% for r in runs %}{% set i = info[r.id] %}<tr>
+<td><a href="/production/{{ r.id }}">{{ r.number }}</a></td><td>{{ r.date|d }}</td><td>{{ r.product.name }}</td><td>{{ r.batch_no or '—' }}</td>
+<td class="n">{{ r.batches_milli/1000 }}</td><td class="n">{{ r.expected_output }}</td><td class="n">{{ r.good_output if r.good_output is not none else '—' }}</td>
+<td>{% if i.v.flagged %}<span class="pill bad">Flagged</span>{% elif r.status == 'completed' %}<span class="pill ok">Within {{ i.v.tolerance_pct }}%</span>{% endif %}</td>
+<td class="n">{{ ('₹' ~ i.c.cost_per_packet) if i.c and i.c.cost_per_packet else '—' }}</td>
+<td><span class="pill s-{{ r.status }}">{{ r.status.replace('_',' ') }}</span></td></tr>
+{% else %}<tr><td colspan="10" class="muted">No runs yet.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

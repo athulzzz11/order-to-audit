@@ -1,0 +1,54 @@
+{% extends "base.html" %}{% block title %}{{ run.number }}{% endblock %}
+{% block body %}
+<p class="small"><a href="/production">← Production</a></p>
+<h1>{{ run.number }} · {{ run.product.name }} <span class="pill s-{{ run.status }}">{{ run.status.replace('_',' ') }}</span></h1>
+<p class="sub">{{ run.date|d }} · {{ run.batches_milli/1000 }} batch · expected {{ run.expected_output }} packets
+{% if run.batch_no %}· batch <span class="tag">{{ run.batch_no }}</span> · best before {{ run.expiry|d }}{% endif %}</p>
+
+{% if run.status == 'in_progress' and can('production', True) %}
+<form method="post" action="/production/{{ run.id }}/complete" class="card">
+  <h2 style="margin-top:0">Step 2 · Record output and packaging</h2>
+  <div class="row"><div><label>Good packets produced</label><input type="number" name="good_output" id="good" value="{{ run.expected_output }}" min="0" oninput="auto()"></div>
+  <div style="flex:1"><label>Scrap / wastage note</label><input name="scrap_note" placeholder="e.g. 1.5 kg broken pieces" style="width:100%"></div></div>
+  <div class="wrap" style="margin-top:12px"><table>
+  <tr><th>Packaging</th><th>Used for good packets</th><th>Damaged / wasted</th><th>Unit</th><th class="n">In store</th></tr>
+  {% for p in pack %}<tr><td>{{ p.item.name }}<input type="hidden" name="item_id" value="{{ p.item.id }}"><div class="small muted">{{ p.per_packet|round(3) }} per packet</div></td>
+  <td><input name="qty" data-per="{{ p.per_packet }}" class="autoq" inputmode="decimal"></td><td><input name="wasted" value="0" inputmode="decimal"></td>
+  <td><select name="unit">{% for u in p.units %}<option>{{ u }}</option>{% endfor %}</select></td><td class="n">{{ p.on_hand|qty(p.item) }}</td></tr>{% endfor %}
+  </table></div>
+  <p class="small muted">"Used" auto-fills from good packets (cartons: whole cartons only). Override with the real count.</p>
+  <button>Complete run → add packets to stock</button>
+</form>
+<script>function auto(){const g=+document.getElementById('good').value||0;for(const i of document.querySelectorAll('.autoq')){i.value=Math.floor(g*+i.dataset.per+1e-9)}}auto()</script>
+{% endif %}
+
+<div class="card"><h2 style="margin-top:0">Planned vs actual {% if v.flagged %}<span class="pill bad">Variance beyond {{ v.tolerance_pct }}%</span>{% elif run.status=='completed' %}<span class="pill ok">Within tolerance</span>{% endif %}</h2>
+<div class="wrap"><table>
+<tr><th>Line</th><th>Basis</th><th class="n">Planned</th><th class="n">Actual</th><th class="n">of which wasted</th><th class="n">Variance</th><th class="n">%</th><th></th><th class="n">Cost</th></tr>
+{% for l in v.lines %}<tr><td>{{ l.item.name }}</td><td class="small muted">{{ {'batch':'per batch','output':'per good packet','extra':'not in BOM'}[l.basis] }}</td>
+<td class="n">{{ l.planned|qty(l.item) if l.planned is not none else 'after output' }}</td><td class="n">{{ l.actual|qty(l.item) }}</td><td class="n">{{ l.wasted|qty(l.item) if l.wasted else '' }}</td>
+<td class="n">{{ l.diff|qty(l.item) if l.diff is not none else '' }}</td><td class="n">{{ l.pct|pct }}</td>
+<td>{% if l.flagged %}<span class="pill bad">{{ 'Over' if l.pct > 0 else 'Under' }}</span>{% elif l.pct is not none %}<span class="pill ok">ok</span>{% endif %}</td><td class="n">{{ l.value|money }}</td></tr>{% endfor %}
+{% if v.yield %}<tr class="total"><td>Yield (good packets)</td><td></td><td class="n">{{ v.yield.expected }}</td><td class="n">{{ v.yield.actual }}</td><td></td><td class="n">{{ v.yield.diff }}</td><td class="n">{{ v.yield.pct|pct }}</td>
+<td>{% if v.yield.flagged %}<span class="pill bad">{{ 'Over' if v.yield.pct > 0 else 'Under' }}</span>{% else %}<span class="pill ok">ok</span>{% endif %}</td><td></td></tr>{% endif %}
+</table></div>
+{% if run.scrap_note %}<p class="small">Scrap note: {{ run.scrap_note }}</p>{% endif %}
+</div>
+
+{% if cost %}<div class="grid">
+<div class="card"><h2 style="margin-top:0">Cost per packet</h2>
+<table><tr><td>Raw material</td><td class="n">{{ cost.raw_paise|money }}</td></tr><tr><td>Packaging</td><td class="n">{{ cost.packaging_paise|money }}</td></tr>
+{% for k, a in cost.overhead_by_category.items() %}<tr><td>{{ k.replace('_',' / ')|capitalize }}</td><td class="n">{{ a|money }}</td></tr>{% endfor %}
+{% if cost.overhead_shared_paise %}<tr><td>Share of month overheads</td><td class="n">{{ cost.overhead_shared_paise|money }}</td></tr>{% endif %}
+<tr class="total"><td>Total ÷ {{ cost.good_output }} good packets</td><td class="n">{{ cost.total_paise|money }}</td></tr>
+<tr><td class="big">Cost per packet</td><td class="n big">₹{{ cost.cost_per_packet }}</td></tr>
+<tr><td>Selling price · margin</td><td class="n">₹{{ cost.selling_price }} · ₹{{ cost.margin }} ({{ cost.margin_pct }}%)</td></tr></table>
+<p class="small muted">Materials at weighted-average cost, including wastage. Overheads entered on this run go 100% to it.</p></div>
+{% if can('production', True) %}<div class="card"><h2 style="margin-top:0">Add overhead to this run</h2>
+<form method="post" action="/production/{{ run.id }}/overhead" class="row"><div><label>Category</label><select name="category"><option value="labour">Labour</option><option value="gas_power">Gas / power</option><option value="other">Other</option></select></div>
+<div><label>Amount (₹)</label><input name="amount" required style="width:100px"></div><div><label>Note</label><input name="note"></div><button>Add</button></form>
+{% for o in overheads %}<div class="small">{{ o.date|d }} · {{ o.category }} · {{ o.amount_paise|money }} {{ o.note or '' }}</div>{% endfor %}</div>
+<div class="card"><h2 style="margin-top:0">Wrong entry?</h2><p class="small muted">Reverses every stock movement of this run (needs the packets still in stock). Logged in the audit trail.</p>
+<form method="post" action="/production/{{ run.id }}/cancel" class="row" onsubmit="return confirm('Reverse this run?')"><div><label>Reason</label><input name="reason" required></div><button class="danger">Reverse run</button></form></div>{% endif %}
+</div>{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Overheads{% endblock %}
+{% block body %}
+<p class="small"><a href="/production">← Production</a></p>
+<h1>Overheads</h1>
+<p class="sub">Enter an overhead on a run page to charge it to that run. Enter it here (no run) and it is shared across the month's runs in proportion to good packets.</p>
+{% if can('production', True) %}<form method="post" action="/overheads" class="card row">
+<div><label>Category</label><select name="category"><option value="labour">Labour</option><option value="gas_power">Gas / power</option><option value="other">Other (rent, repairs)</option></select></div>
+<div><label>Amount (₹)</label><input name="amount" required></div><div><label>Date</label><input type="date" name="on" value="{{ today }}"></div>
+<div><label>Note</label><input name="note"></div><button>Add month overhead</button></form>{% endif %}
+<div class="wrap"><table><tr><th>Date</th><th>Category</th><th>Charged to</th><th>Note</th><th class="n">Amount</th></tr>
+{% for o in rows %}<tr><td>{{ o.date|d }}</td><td>{{ o.category }}</td><td>{% if o.run %}<a href="/production/{{ o.run.id }}">{{ o.run.number }}</a>{% else %}Month pool{% endif %}</td><td>{{ o.note or '' }}</td><td class="n">{{ o.amount_paise|money }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">None yet.</td></tr>{% endfor %}</table></div>
+{% endblock %}
