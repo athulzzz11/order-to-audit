@@ -57,13 +57,17 @@ With FIFO instead, flour would cost 40 × 42 = ₹1,680 and the packet ₹30.90.
 docker compose up --build        # → http://localhost:8000
 ```
 
-**Local (SQLite, no setup):**
+**Local (SQLite, no setup, Python 3.11+):**
+
+Double-click `run.bat` on Windows, or run `./run.sh` on Mac/Linux. Or do it step by step:
 ```bash
 pip install -r requirements.txt
-python -m app.seed               # loads the section 5 master data (opening stock dated the 1st of this month)
-uvicorn app.main:app --reload    # → http://localhost:8000   (the salesman app is at /m/ — open it on a phone)
+python -m uvicorn app.main:app   # → http://localhost:8000  (first start loads the section 5 data automatically)
+                                 #   salesman app: /m/ (open it on a phone, or F12 → phone icon)
+python -m app.seed               # optional: wipe and reload the opening data
 python -m pytest                 # 17 tests: units, GST, ledger, variance, FEFO, credit notes, full benchmark over HTTP
 ```
+Tested on Python 3.11, 3.12 and 3.13, with SQLite and PostgreSQL 16.
 
 **Test logins** (password `demo123` for all; click a name on the login page to fill it in)
 
