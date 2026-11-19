@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}Stock{% endblock %}
+{% block body %}
+<h1>Stock</h1>
+<p class="sub">Every number here is the sum of the stock ledger. Nobody types a balance; click an item to see each movement and its source document.</p>
+{% for group, label in [('raw','Raw materials'),('packaging','Packaging'),('finished','Finished goods')] %}
+<h2>{{ label }}</h2>
+<div class="wrap"><table><tr><th>Item</th><th class="n">On hand</th>{% if group=='finished' %}<th class="n">Reserved (invoiced, not dispatched)</th><th>Batches (FEFO order)</th>{% endif %}<th class="n">Value</th><th class="n">Reorder level</th><th></th></tr>
+{% for r in rows if r.item.kind == group %}<tr>
+<td><a href="/stock/ledger?item_id={{ r.item.id }}">{{ r.item.name }}</a> <span class="small muted">{{ r.item.code }}</span></td>
+<td class="n"><b>{{ r.balance|qty(r.item) }}</b>{% if r.item.pack_per_carton %}<div class="small muted">{{ r.balance // r.item.pack_per_carton }} cartons + {{ r.balance % r.item.pack_per_carton }}</div>{% endif %}</td>
+{% if group=='finished' %}<td class="n">{{ r.reserved }}</td><td class="small">{% for b in r.batches %}<span class="tag">{{ b.batch_no }}</span> {{ b.qty }} · exp {{ b.expiry|d }}<br>{% endfor %}</td>{% endif %}
+<td class="n">{{ r.value|money }}</td><td class="n">{{ r.item.reorder_level|qty(r.item) }}</td>
+<td>{% if r.low %}<span class="pill bad">Low – reorder</span>{% endif %}</td></tr>{% endfor %}</table></div>
+{% endfor %}
+{% if can('stock', True) %}<div class="card" style="margin-top:18px"><h2 style="margin-top:0">Physical count adjustment</h2>
+<p class="small muted">Posts an adjustment movement with your reason; it never overwrites the balance.</p>
+<form method="post" action="/stock/adjust" class="row">
+<div><label>Item</label><select name="item_id">{% for r in rows %}<option value="{{ r.item.id }}">{{ r.item.name }}</option>{% endfor %}</select></div>
+<div><label>Direction</label><select name="direction"><option value="minus">Shortage (−)</option><option value="plus">Excess (+)</option></select></div>
+<div><label>Qty</label><input name="qty" style="width:80px" required></div>
+<div><label>Unit</label><select name="unit"><option>kg</option><option>g</option><option>l</option><option>ml</option><option>pcs</option><option>packet</option></select></div>
+<div><label>Reason</label><input name="reason" required placeholder="Monthly count"></div><button>Post adjustment</button></form></div>{% endif %}
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}{{ rep.title }}{% endblock %}
+{% block body %}
+<p class="small"><a href="/reports?start={{ start }}&end={{ end }}">← Reports</a></p>
+<h1>{{ rep.title }}</h1>
+<form class="row" method="get" style="margin:8px 0 14px">
+  <div><label>From</label><input type="date" name="start" value="{{ start }}"></div><div><label>To</label><input type="date" name="end" value="{{ end }}"></div>
+  {% if items %}<div><label>Item</label><select name="item_id"><option value="">All items</option>{% for i in items %}<option value="{{ i.id }}" {{ 'selected' if i.id == item_id }}>{{ i.name }}</option>{% endfor %}</select></div>{% endif %}
+  <button class="alt">Apply</button>
+  {% set q = 'start=' ~ start ~ '&end=' ~ end ~ ('&item_id=' ~ item_id if item_id else '') %}
+  <a class="btn" href="/reports/{{ key }}?{{ q }}&format=xlsx">Excel</a><a class="btn alt" href="/reports/{{ key }}?{{ q }}&format=csv">CSV</a><a class="btn alt" target="_blank" href="/reports/{{ key }}?{{ q }}&format=pdf">PDF</a>
+</form>
+{% if rep.note %}<p class="small muted">{{ rep.note }}</p>{% endif %}
+<div class="wrap"><table>
+<tr>{% for c, k in rep.columns %}<th class="{{ 'n' if k in ('money','qty','int','pct') }}">{{ c }}</th>{% endfor %}</tr>
+{% for r in rep.rows %}<tr>{% for v in r %}{% set k = rep.columns[loop.index0][1] %}<td class="{{ 'n' if k in ('money','qty','int','pct') }}">{% if k == 'flag' and v %}<span class="pill {{ v }}">{{ v }}</span>{% else %}{{ v|cell(k) }}{% endif %}</td>{% endfor %}</tr>
+{% else %}<tr><td colspan="{{ rep.columns|length }}" class="muted">No entries in this period.</td></tr>{% endfor %}
+{% if rep.totals %}<tr class="total">{% for v in rep.totals %}<td class="{{ 'n' if rep.columns[loop.index0][1] in ('money','qty','int','pct') }}">{{ v|cell(rep.columns[loop.index0][1]) if v is not none else '' }}</td>{% endfor %}</tr>{% endif %}
+</table></div>
+{% endblock %}

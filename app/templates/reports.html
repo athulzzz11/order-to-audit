@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Reports{% endblock %}
+{% block body %}
+<h1>Reports for accounts and audit</h1>
+<p class="sub">Pick a period, open a report, or export it straight to Excel, CSV or PDF.</p>
+<form class="card row" method="get"><div><label>From</label><input type="date" name="start" value="{{ start }}"></div><div><label>To</label><input type="date" name="end" value="{{ end }}"></div><button class="alt">Set period</button></form>
+<div class="grid">{% for key, (label, _) in reports.items() %}
+<div class="card" style="margin:0"><b><a href="/reports/{{ key }}?start={{ start }}&end={{ end }}">{{ label }}</a></b>
+<div class="actions small"><a href="/reports/{{ key }}?start={{ start }}&end={{ end }}&format=xlsx">Excel</a> · <a href="/reports/{{ key }}?start={{ start }}&end={{ end }}&format=csv">CSV</a> · <a href="/reports/{{ key }}?start={{ start }}&end={{ end }}&format=pdf" target="_blank">PDF</a></div></div>{% endfor %}</div>
+{% endblock %}

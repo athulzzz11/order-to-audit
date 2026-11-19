@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% block title %}Dashboard{% endblock %}
+{% block body %}
+<h1>Owner's summary</h1>
+<p class="sub">{{ today|d }}</p>
+<div class="grid">
+  <div class="kpi"><div class="l">Orders today</div><div class="n">{{ todays|length }}</div><div class="small muted">{{ pending }} waiting for admin</div></div>
+  <div class="kpi"><div class="l">Sales this month (pre-tax)</div><div class="n">{{ month_sales|money }}</div></div>
+  <div class="kpi"><div class="l">Outstanding dues</div><div class="n">{{ total_out|money }}</div></div>
+  <div class="kpi"><div class="l">Variance alerts this month</div><div class="n" style="color:{{ 'var(--bad)' if alerts else 'var(--ok)' }}">{{ alerts|length }}</div></div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+<div class="card"><h2 style="margin-top:0">Cost per packet (this month)</h2>
+{% for c in costs %}<div class="big">{{ c.product.name }}: ₹{{ c.cost_per_packet }}</div><div class="small muted">sells at ₹{{ c.selling_price }} → margin ₹{{ c.margin }} ({{ c.margin_pct }}%) · {{ c.good }} packets in {{ c.runs }} run(s)</div>
+{% else %}<p class="muted">No completed runs this month.</p>{% endfor %}</div>
+<div class="card"><h2 style="margin-top:0">Variance alerts</h2>
+{% for a in alerts %}<div><a href="/production/{{ a.run.id }}">{{ a.run.number }}</a> · {{ a.what }} <span class="pill bad">{{ a.pct|pct }}</span></div>{% else %}<p class="muted">Everything within tolerance.</p>{% endfor %}</div>
+<div class="card"><h2 style="margin-top:0">Orders we can't fill yet</h2>
+{% for s in shortages %}<div><a href="/orders/{{ s.order.id }}">{{ s.order.number }}</a> {{ s.order.customer.name }}: short <b>{{ s.shortage }}</b> → make {{ s.batches_needed }} batch</div>{% else %}<p class="muted">All open orders are covered.</p>{% endfor %}</div>
+</div>
+
+<div class="grid">
+<div class="card"><h2 style="margin-top:0">Stock levels</h2><table>
+{% for r in stock_rows %}<tr><td>{{ r.item.name }}</td><td class="n">{{ r.bal|qty(r.item) }}{% if r.reserved %} <span class="small muted">({{ r.reserved }} reserved)</span>{% endif %}</td><td>{% if r.low %}<span class="pill bad">low</span>{% endif %}</td></tr>{% endfor %}</table></div>
+<div class="card"><h2 style="margin-top:0">Who owes us</h2><table><tr><th>Customer</th><th class="n">0-30</th><th class="n">31-60</th><th class="n">60+</th><th class="n">Total</th></tr>
+{% for o in outs %}<tr><td>{{ o.c.name }}</td><td class="n">{{ o.a['0-30']|money }}</td><td class="n">{{ o.a['31-60']|money }}</td><td class="n">{{ (o.a['61-90']+o.a['90+'])|money }}</td><td class="n"><b>{{ o.a.total|money }}</b></td></tr>{% else %}<tr><td colspan="5" class="muted">Nothing due.</td></tr>{% endfor %}</table></div>
+</div>
+{% endblock %}

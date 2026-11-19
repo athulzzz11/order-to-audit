@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block title %}Masters{% endblock %}
+{% block body %}
+<h1>Master data</h1>
+<p class="sub">Products, materials, recipes (BOM), customers and suppliers.</p>
+
+<h2>Bill of Materials</h2>
+{% for b in boms %}<form method="post" action="/masters/bom/{{ b.id }}" class="card">
+<h3 style="margin-top:0">{{ b.product.name }} · version {{ b.version }}</h3>
+<div class="row"><div><label>Expected yield (packets per batch)</label><input type="number" name="batch_output" value="{{ b.batch_output }}" {{ '' if can('bom', True) else 'disabled' }}></div><div style="flex:1"><label>Note</label><input name="note" value="{{ b.note or '' }}" style="width:100%"></div></div>
+<div class="wrap" style="margin-top:10px"><table><tr><th>Material</th><th>Qty per batch</th><th>Unit</th><th>Planned as</th></tr>
+{% for l in b.lines %}<tr><td>{{ l.item.name }}</td><td><input name="qty_{{ l.id }}" value="{{ l.qty_per_batch|num(l.item) }}" style="width:90px"></td><td>{{ l.item.display_unit }}</td>
+<td><select name="basis_{{ l.id }}"><option value="batch" {{ 'selected' if l.basis=='batch' }}>per batch (ingredient)</option><option value="output" {{ 'selected' if l.basis=='output' }}>per good packet (packaging)</option></select></td></tr>{% endfor %}
+<tr><td><select name="new_item_id"><option value="">+ add material…</option>{% for i in items if i.kind != 'finished' %}<option value="{{ i.id }}">{{ i.name }} ({{ i.display_unit }})</option>{% endfor %}</select></td><td><input name="new_qty" style="width:90px"></td><td></td>
+<td><select name="new_basis"><option value="batch">per batch</option><option value="output">per good packet</option></select></td></tr></table></div>
+{% if can('bom', True) %}<div class="actions"><button>Save as version {{ b.version + 1 }}</button><span class="small muted">Old runs keep the version they used.</span></div>{% endif %}
+</form>{% endfor %}
+
+<h2>Items</h2>
+<div class="wrap"><table><tr><th>Code</th><th>Name</th><th>Type</th><th>Stock unit</th><th>HSN</th><th class="n">GST</th><th class="n">Price</th><th class="n">Per carton</th></tr>
+{% for i in items %}<tr><td class="tag">{{ i.code }}</td><td>{{ i.name }}</td><td>{{ i.kind }}</td><td>{{ i.display_unit }} <span class="muted small">(stored in {{ i.base_unit }})</span></td><td>{{ i.hsn or '' }}</td><td class="n">{{ (i.gst_rate_bp/100 ~ '%') if i.kind=='finished' else '' }}</td><td class="n">{{ i.selling_price_paise|money if i.kind=='finished' else '' }}</td><td class="n">{{ i.pack_per_carton or '' }}</td></tr>{% endfor %}</table></div>
+{% if can('masters', True) %}<form method="post" action="/masters/items" class="card row" style="margin-top:10px">
+<div><label>Code</label><input name="code" required style="width:100px"></div><div><label>Name</label><input name="name" required></div>
+<div><label>Type</label><select name="kind"><option>raw</option><option>packaging</option><option>finished</option></select></div>
+<div><label>Unit</label><select name="display_unit"><option>kg</option><option>l</option><option>pcs</option><option>packet</option></select></div>
+<div><label>Reorder at</label><input name="reorder" value="0" style="width:70px"></div><div><label>Price ₹ (finished)</label><input name="price" value="0" style="width:70px"></div>
+<div><label>HSN</label><input name="hsn" style="width:90px"></div><div><label>GST %</label><input name="gst" value="5" style="width:50px"></div><div><label>Per carton</label><input name="per_carton" style="width:60px"></div><button>Add item</button></form>{% endif %}
+
+<h2>Customers</h2>
+<div class="wrap"><table><tr><th>Name</th><th>Type</th><th>GSTIN</th><th>State</th><th>Salesman</th><th>Phone</th></tr>
+{% for c in customers %}<tr><td>{{ c.name }}</td><td>{{ c.kind }}</td><td>{{ c.gstin or 'Unregistered (B2C)' }}</td><td>{{ c.state_name }} ({{ c.state_code }})</td><td>{{ (salesmen|selectattr('id','equalto',c.salesman_id)|first).name if c.salesman_id else '' }}</td><td>{{ c.phone or '' }}</td></tr>{% endfor %}</table></div>
+{% if can('masters', True) %}<form method="post" action="/masters/customers" class="card row" style="margin-top:10px">
+<div><label>Name</label><input name="name" required></div><div><label>Type</label><select name="kind"><option>retailer</option><option>distributor</option></select></div>
+<div><label>GSTIN</label><input name="gstin" style="width:160px"></div><div><label>State</label><select name="state_code">{% for k, v in states.items() %}<option value="{{ k }}" {{ 'selected' if k=='33' }}>{{ v }}</option>{% endfor %}</select></div>
+<div><label>Salesman</label><select name="salesman_id">{% for s in salesmen %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></div><div><label>Phone</label><input name="phone" style="width:120px"></div><button>Add customer</button></form>{% endif %}
+
+<h2>Suppliers</h2>
+<div class="wrap"><table><tr><th>Name</th><th>GSTIN</th><th>Phone</th></tr>{% for s in suppliers %}<tr><td>{{ s.name }}</td><td>{{ s.gstin or '' }}</td><td>{{ s.phone or '' }}</td></tr>{% endfor %}</table></div>
+{% if can('masters', True) %}<form method="post" action="/masters/suppliers" class="card row" style="margin-top:10px"><div><label>Name</label><input name="name" required></div><div><label>GSTIN</label><input name="gstin"></div><div><label>Phone</label><input name="phone"></div><button>Add supplier</button></form>{% endif %}
+{% endblock %}
