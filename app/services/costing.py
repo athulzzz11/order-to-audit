@@ -66,7 +66,7 @@ def run_cost(db: Session, run: ProductionRun) -> dict:
     good = run.good_output or 0
     per = (Decimal(total) / good / 100).quantize(Decimal("0.01")) if good else None
     material_per = (Decimal(raw + pack) / good / 100).quantize(Decimal("0.01")) if good else None
-    price = Decimal(run.product.selling_price_paise) / 100
+    price = (Decimal(run.product.selling_price_paise) / 100).quantize(Decimal("0.01"))
     margin = (price - per) if per is not None else None
     return {
         "run": run, "raw_paise": raw, "packaging_paise": pack, "overhead_by_category": by_cat,
@@ -93,7 +93,7 @@ def product_costs(db: Session, start: date, end: date) -> list[dict]:
     out = []
     for a in agg.values():
         per = (Decimal(a["total"]) / a["good"] / 100).quantize(Decimal("0.01")) if a["good"] else None
-        price = Decimal(a["product"].selling_price_paise) / 100
+        price = (Decimal(a["product"].selling_price_paise) / 100).quantize(Decimal("0.01"))
         a.update(cost_per_packet=per, selling_price=price,
                  margin=(price - per) if per is not None else None,
                  margin_pct=((price - per) * 100 / price).quantize(Decimal("0.1")) if per is not None and price else None)

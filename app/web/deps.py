@@ -49,7 +49,7 @@ NAV = [  # (area, label, url)
     ("masters", "Masters", "/masters"),
     ("reports", "Reports", "/reports"),
     ("audit", "Audit log", "/audit"),
-    ("benchmark", "Benchmark check", "/benchmark"),
+    ("benchmark", "Benchmark", "/benchmark"),
 ]
 
 
