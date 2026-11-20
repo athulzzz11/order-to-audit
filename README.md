@@ -9,7 +9,8 @@ PRODUCTION LOOP  Purchase → Raw stock → Issue against BOM → Run output ─
 BOTH             → Stock ledger → Variance → Cost per packet → Reports (Excel / CSV / PDF)
 ```
 
-**Live demo:** _link added after deployment_ · logins below, password `demo123` (free hosting sleeps when idle, so the first load can take ~50 s)
+**Live demo: https://order-to-audit.onrender.com** · logins below, password `demo123` · salesman app at [/m/](https://order-to-audit.onrender.com/m/) (open on a phone)
+> Free hosting sleeps when idle, so the first load can take ~50 s, and the demo data resets to the section 5 opening position each time it wakes. To see the end state instantly: log in as `owner` → **Benchmark** → **Play all 9 steps**.
 
 ---
 
